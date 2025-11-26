@@ -31,6 +31,11 @@ my-console/
 └── package.json
 ```
 
+## 요구사항
+
+- Node.js: 20.x 이상
+- npm: 10.x 이상
+
 ## 설치 및 실행
 
 ### 1. 의존성 설치
@@ -69,6 +74,16 @@ npm run dev
 npm run build
 ```
 
+### 5. 프로덕션 미리보기
+
+빌드 후 프로덕션 환경을 로컬에서 미리 확인할 수 있습니다.
+
+```bash
+npm run preview
+```
+
+브라우저에서 `http://localhost:8080`으로 접속합니다.
+
 ## AWS Cognito 설정
 
 1. AWS Console에서 Cognito User Pool을 생성합니다.
@@ -100,6 +115,6 @@ npm run build
 
 ## 참고 사항
 
-- Node.js 버전: 18.x (현재 설치된 버전에서 일부 경고가 발생할 수 있지만 정상 작동합니다)
 - Scarif-HAPI 서버가 실행 중이어야 API 호출이 성공합니다.
 - CORS 설정이 필요할 수 있습니다 (Scarif-HAPI 서버 설정 확인).
+- 로그인 시 "로그인 후 사용자 정보 API 호출" 옵션을 체크하면 /me API를 호출합니다 (기본값: 비활성화).
