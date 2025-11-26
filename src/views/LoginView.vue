@@ -26,6 +26,16 @@
           />
         </div>
 
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              v-model="fetchMeInfo"
+            />
+            <span>로그인 후 사용자 정보 API 호출</span>
+          </label>
+        </div>
+
         <div v-if="authStore.error" class="error-message">
           {{ authStore.error }}
         </div>
@@ -48,10 +58,11 @@ const authStore = useAuthStore();
 
 const username = ref('');
 const password = ref('');
+const fetchMeInfo = ref(false);
 
 async function handleLogin() {
   try {
-    const result = await authStore.login(username.value, password.value);
+    const result = await authStore.login(username.value, password.value, fetchMeInfo.value);
 
     // Check if password change is required
     if (result.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
@@ -114,6 +125,28 @@ input {
 input:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.checkbox-group {
+  margin-bottom: 1.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  color: #555;
+  font-size: 0.9rem;
 }
 
 .error-message {

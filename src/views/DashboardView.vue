@@ -13,7 +13,7 @@
       <button @click="fetchUserInfo" class="retry-button">다시 시도</button>
     </div>
 
-    <div v-else-if="userInfo" class="info-card">
+    <div v-else class="info-card">
       <h2>Cognito 사용자 정보</h2>
       <div class="info-section">
         <div class="info-item">
@@ -48,10 +48,13 @@
         </div>
       </div>
 
-      <h2>API 응답 (GET /api/v1/me)</h2>
-      <div class="info-section">
-        <pre class="api-response">{{ JSON.stringify(userInfo, null, 2) }}</pre>
-      </div>
+      <template v-if="authStore.shouldFetchMe">
+        <h2>API 응답 (GET /api/v1/me)</h2>
+        <div class="info-section">
+          <pre v-if="userInfo" class="api-response">{{ JSON.stringify(userInfo, null, 2) }}</pre>
+          <div v-else class="no-data">API 호출 결과가 없습니다.</div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -71,11 +74,18 @@ const error = ref<string | null>(null);
 const tokenCopied = ref(false);
 
 async function fetchUserInfo() {
+  // Only fetch if the option is enabled
+  if (!authStore.shouldFetchMe) {
+    console.log('Skipping /me API call - option disabled');
+    return;
+  }
+
   loading.value = true;
   error.value = null;
 
   try {
     userInfo.value = await apiService.getCurrentUser();
+    console.log('Successfully fetched user info from /me API');
   } catch (err: any) {
     error.value = err.response?.data?.message || err.message || 'Failed to fetch user info';
     console.error('Error fetching user info:', err);
@@ -252,6 +262,13 @@ h2 {
   text-align: left;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.no-data {
+  padding: 2rem;
+  text-align: center;
+  color: #718096;
+  font-size: 0.9rem;
 }
 
 .value-with-copy {

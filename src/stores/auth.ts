@@ -12,15 +12,18 @@ export const useAuthStore = defineStore('auth', () => {
   const challengeName = ref<string | null>(null);
   const challengeSession = ref<string | null>(null);
   const pendingUsername = ref<string | null>(null);
+  const shouldFetchMe = ref(false);
 
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string, fetchMe: boolean = false) {
     loading.value = true;
     error.value = null;
     challengeName.value = null;
     challengeSession.value = null;
+    shouldFetchMe.value = fetchMe;
 
     console.log('=== Login Attempt ===');
     console.log('Username:', username);
+    console.log('Fetch Me API:', fetchMe);
     console.log('====================');
 
     try {
@@ -165,6 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
     challengeName,
     challengeSession,
     pendingUsername,
+    shouldFetchMe,
     login,
     logout,
     checkAuthStatus,
