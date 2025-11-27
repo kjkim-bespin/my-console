@@ -71,41 +71,57 @@
 
     <!-- View Details Modal -->
     <div v-if="showViewModal" class="modal-overlay" @click="closeViewModal">
-      <div class="modal-content" @click.stop>
+      <div class="modal-content modal-content-wide" @click.stop>
         <h2>조직 상세 정보</h2>
 
-        <div class="detail-group">
-          <label>조직 ID</label>
-          <div class="detail-value">{{ viewData.id || '-' }}</div>
-        </div>
+        <div class="detail-grid">
+          <div class="detail-column">
+            <div class="detail-group">
+              <label>조직 ID</label>
+              <div class="detail-value">{{ viewData.id || '-' }}</div>
+            </div>
 
-        <div class="detail-group">
-          <label>조직 이름</label>
-          <div class="detail-value">{{ viewData.name || '-' }}</div>
-        </div>
+            <div class="detail-group">
+              <label>조직 이름</label>
+              <div class="detail-value">{{ viewData.name || '-' }}</div>
+            </div>
 
-        <div class="detail-group">
-          <label>설명</label>
-          <div class="detail-value">{{ viewData.description || '-' }}</div>
-        </div>
+            <div class="detail-group">
+              <label>상태</label>
+              <div class="detail-value">
+                <span class="status-badge" :class="viewData.status">
+                  {{ viewData.status || '-' }}
+                </span>
+              </div>
+            </div>
 
-        <div class="detail-group">
-          <label>상태</label>
-          <div class="detail-value">
-            <span class="status-badge" :class="viewData.status">
-              {{ viewData.status || '-' }}
-            </span>
+            <div class="detail-group">
+              <label>설명</label>
+              <div class="detail-value">{{ viewData.description || '-' }}</div>
+            </div>
           </div>
-        </div>
 
-        <div class="detail-group">
-          <label>생성일</label>
-          <div class="detail-value">{{ formatDate(viewData.created) }}</div>
-        </div>
+          <div class="detail-column">
+            <div class="detail-group">
+              <label>생성일</label>
+              <div class="detail-value">{{ formatDate(viewData.created) }}</div>
+            </div>
 
-        <div class="detail-group">
-          <label>수정일</label>
-          <div class="detail-value">{{ formatDate(viewData.updated) }}</div>
+            <div class="detail-group">
+              <label>생성자</label>
+              <div class="detail-value">{{ viewData.createdBy || '-' }}</div>
+            </div>
+
+            <div class="detail-group">
+              <label>수정일</label>
+              <div class="detail-value">{{ formatDate(viewData.modified) }}</div>
+            </div>
+
+            <div class="detail-group">
+              <label>수정자</label>
+              <div class="detail-value">{{ viewData.modifiedBy || '-' }}</div>
+            </div>
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -622,8 +638,25 @@ onMounted(() => {
 }
 
 /* Detail View Styles */
-.detail-group {
+.modal-content-wide {
+  max-width: 700px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
   margin-bottom: 1.5rem;
+}
+
+.detail-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detail-group {
+  margin-bottom: 0;
 }
 
 .detail-group label {
@@ -642,5 +675,17 @@ onMounted(() => {
   min-height: 2.5rem;
   display: flex;
   align-items: center;
+  word-break: break-all;
+}
+
+@media (max-width: 768px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .modal-content-wide {
+    max-width: 90%;
+  }
 }
 </style>
