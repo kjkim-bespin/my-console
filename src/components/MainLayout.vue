@@ -256,6 +256,9 @@ async function handleLogout() {
   margin-left: 260px;
   padding: 1.5rem;
   min-height: 100vh;
+  width: calc(100vw - 260px);
+  max-width: calc(100vw - 260px);
+  box-sizing: border-box;
 }
 
 /* Scrollbar styling */
