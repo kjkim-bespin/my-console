@@ -522,7 +522,7 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-container {
-  padding: 2rem;
+  padding: 1.5rem;
   min-height: 100vh;
   background: #f7fafc;
 }
@@ -569,7 +569,7 @@ h1 {
   background: #fff5f5;
   border: 1px solid #feb2b2;
   border-radius: 10px;
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
 }
 
@@ -601,7 +601,7 @@ h1 {
 .info-card {
   background: white;
   border-radius: 10px;
-  padding: 2rem;
+  padding: 1.5rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
@@ -655,7 +655,7 @@ h2 {
 }
 
 .no-data {
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
   color: #718096;
   font-size: 0.9rem;
@@ -802,7 +802,7 @@ h2 {
 
 .modal-content {
   background: white;
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 10px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   width: 90%;

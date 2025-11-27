@@ -366,7 +366,7 @@ onMounted(() => {
   background: #fff5f5;
   border: 1px solid #feb2b2;
   border-radius: 8px;
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
 }
 
@@ -529,7 +529,7 @@ onMounted(() => {
 
 .modal-content {
   background: white;
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 10px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   width: 90%;

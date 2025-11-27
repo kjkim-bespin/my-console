@@ -254,7 +254,7 @@ async function handleLogout() {
 .main-content {
   flex: 1;
   margin-left: 260px;
-  padding: 2rem;
+  padding: 1.5rem;
   min-height: 100vh;
 }
 
