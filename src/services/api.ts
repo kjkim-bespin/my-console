@@ -112,6 +112,12 @@ class ApiService {
     return response.data;
   }
 
+  // Delete organization (systemadmin only)
+  async adminDeleteOrganization(organizationId: string) {
+    const response = await this.api.delete(`/api/v1/admin/organizations/${organizationId}`);
+    return response.data;
+  }
+
   // ============ Users API ============
   // List users in organization
   async listUsers(organizationId: string) {

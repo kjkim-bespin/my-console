@@ -41,10 +41,22 @@
             </td>
             <td>{{ formatDate(org.created) }}</td>
             <td class="actions">
+              <button @click="openViewModal(org)" class="action-btn view-btn" title="상세보기">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
               <button @click="openEditModal(org)" class="action-btn edit-btn" title="수정">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              <button @click="confirmDelete(org)" class="action-btn delete-btn" title="삭제">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
               </button>
             </td>
@@ -54,6 +66,53 @@
 
       <div v-if="organizations.length === 0" class="no-data">
         등록된 조직이 없습니다.
+      </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div v-if="showViewModal" class="modal-overlay" @click="closeViewModal">
+      <div class="modal-content" @click.stop>
+        <h2>조직 상세 정보</h2>
+
+        <div class="detail-group">
+          <label>조직 ID</label>
+          <div class="detail-value">{{ viewData.id || '-' }}</div>
+        </div>
+
+        <div class="detail-group">
+          <label>조직 이름</label>
+          <div class="detail-value">{{ viewData.name || '-' }}</div>
+        </div>
+
+        <div class="detail-group">
+          <label>설명</label>
+          <div class="detail-value">{{ viewData.description || '-' }}</div>
+        </div>
+
+        <div class="detail-group">
+          <label>상태</label>
+          <div class="detail-value">
+            <span class="status-badge" :class="viewData.status">
+              {{ viewData.status || '-' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="detail-group">
+          <label>생성일</label>
+          <div class="detail-value">{{ formatDate(viewData.created) }}</div>
+        </div>
+
+        <div class="detail-group">
+          <label>수정일</label>
+          <div class="detail-value">{{ formatDate(viewData.updated) }}</div>
+        </div>
+
+        <div class="modal-actions">
+          <button @click="closeViewModal" class="secondary-button">
+            닫기
+          </button>
+        </div>
       </div>
     </div>
 
@@ -117,6 +176,9 @@ const formData = ref({
   description: '',
 });
 
+const showViewModal = ref(false);
+const viewData = ref<any>({});
+
 async function fetchOrganizations() {
   loading.value = true;
   error.value = null;
@@ -131,6 +193,16 @@ async function fetchOrganizations() {
   } finally {
     loading.value = false;
   }
+}
+
+function openViewModal(org: any) {
+  viewData.value = { ...org };
+  showViewModal.value = true;
+}
+
+function closeViewModal() {
+  showViewModal.value = false;
+  viewData.value = {};
 }
 
 function openCreateModal() {
@@ -192,6 +264,29 @@ async function submitForm() {
   } catch (err: any) {
     modalError.value = err.response?.data?.message || err.message || '조직 저장에 실패했습니다.';
     console.error('Error saving organization:', err);
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function confirmDelete(org: any) {
+  const confirmed = confirm(`조직 "${org.name}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+
+  try {
+    await apiService.adminDeleteOrganization(org.id);
+    alert('조직이 성공적으로 삭제되었습니다!');
+    await fetchOrganizations();
+  } catch (err: any) {
+    const errorMessage = err.response?.data?.message || err.message || '조직 삭제에 실패했습니다.';
+    alert(`삭제 실패: ${errorMessage}`);
+    console.error('Error deleting organization:', err);
   } finally {
     loading.value = false;
   }
@@ -352,6 +447,9 @@ onMounted(() => {
 
 .actions {
   text-align: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
 }
 
 .action-btn {
@@ -366,6 +464,15 @@ onMounted(() => {
   justify-content: center;
 }
 
+.view-btn {
+  color: #48bb78;
+}
+
+.view-btn:hover {
+  background: #f0fff4;
+  border-color: #48bb78;
+}
+
 .edit-btn {
   color: #667eea;
 }
@@ -373,6 +480,15 @@ onMounted(() => {
 .edit-btn:hover {
   background: #ebf4ff;
   border-color: #667eea;
+}
+
+.delete-btn {
+  color: #f56565;
+}
+
+.delete-btn:hover {
+  background: #fff5f5;
+  border-color: #f56565;
 }
 
 .no-data {
@@ -503,5 +619,28 @@ onMounted(() => {
 .secondary-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Detail View Styles */
+.detail-group {
+  margin-bottom: 1.5rem;
+}
+
+.detail-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #4a5568;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.detail-group .detail-value {
+  padding: 0.75rem;
+  background: #f7fafc;
+  border-radius: 5px;
+  color: #2d3748;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
 }
 </style>
