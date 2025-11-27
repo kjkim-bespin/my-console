@@ -444,8 +444,6 @@ onMounted(() => {
 
 <style scoped>
 .users-view {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .page-header {

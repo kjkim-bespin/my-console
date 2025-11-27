@@ -421,8 +421,6 @@ onMounted(() => {
 
 <style scoped>
 .cloud-accounts-view {
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .page-header {

@@ -522,8 +522,6 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-container {
-  max-width: 900px;
-  margin: 0 auto;
   padding: 2rem;
   min-height: 100vh;
   background: #f7fafc;

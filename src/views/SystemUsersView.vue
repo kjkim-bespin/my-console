@@ -421,8 +421,6 @@ onMounted(async () => {
 <style scoped>
 /* Reuse styles from UsersView */
 .system-users-view {
-  max-width: 1600px;
-  margin: 0 auto;
 }
 
 .page-header {
