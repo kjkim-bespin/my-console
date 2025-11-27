@@ -44,6 +44,23 @@ class ApiService {
     const response = await this.api.get('/api/v1/me');
     return response.data;
   }
+
+  // Update user basic information
+  async updateUserInfo(data: {
+    name: string;
+    phoneNumber?: string;
+    timezone?: string;
+    language?: string;
+  }) {
+    const response = await this.api.put('/api/v1/me', data);
+    return response.data;
+  }
+
+  // Switch user's organization
+  async switchOrganization(organizationId: string) {
+    const response = await this.api.patch('/api/v1/me', { organizationId });
+    return response.data;
+  }
 }
 
 export default new ApiService();
