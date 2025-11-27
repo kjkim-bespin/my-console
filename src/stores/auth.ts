@@ -458,4 +458,6 @@ export const useAuthStore = defineStore('auth', () => {
     canManageUsers,
     getCurrentOrganizationRole,
   };
+}, {
+  persist: true,
 });
