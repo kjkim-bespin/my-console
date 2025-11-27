@@ -15,6 +15,7 @@ import { extractUserInfo } from '../utils/jwt';
 export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = ref(false);
   const user = ref<any>(null);
+  const userInfo = ref<any>(null); // Full user info from GET /api/v1/me
   const loading = ref(false);
   const error = ref<string | null>(null);
   const tokens = ref<any>(null);
@@ -328,9 +329,103 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // ============ Permission Helper Functions ============
+  /**
+   * Check if user is systemadmin
+   * systemadmin role is indicated by a special 'systemadmin' role in organizationRoles
+   */
+  function isSystemAdmin(): boolean {
+    if (!userInfo.value || !userInfo.value.organizationRoles) {
+      return false;
+    }
+
+    // Check if user has systemadmin role in any organization
+    return userInfo.value.organizationRoles.some((roleObj: any) =>
+      roleObj.role === 'systemadmin'
+    );
+  }
+
+  /**
+   * Check if user is admin in current organization
+   */
+  function isAdminInCurrentOrg(): boolean {
+    if (!userInfo.value || !userInfo.value.organizationRoles) {
+      return false;
+    }
+
+    const currentOrgId = userInfo.value.recentOrganizationId;
+    if (!currentOrgId) {
+      return false;
+    }
+
+    // Check if user has admin role in current organization
+    return userInfo.value.organizationRoles.some((roleObj: any) =>
+      roleObj.organizationId === currentOrgId && roleObj.role === 'admin'
+    );
+  }
+
+  /**
+   * Check if user is admin in a specific organization
+   */
+  function isAdminInOrg(organizationId: string): boolean {
+    if (!userInfo.value || !userInfo.value.organizationRoles) {
+      return false;
+    }
+
+    return userInfo.value.organizationRoles.some((roleObj: any) =>
+      roleObj.organizationId === organizationId && roleObj.role === 'admin'
+    );
+  }
+
+  /**
+   * Check if user can manage organizations (systemadmin only)
+   */
+  function canManageOrganizations(): boolean {
+    return isSystemAdmin();
+  }
+
+  /**
+   * Check if user can manage users (systemadmin or admin)
+   */
+  function canManageUsers(): boolean {
+    return isSystemAdmin() || isAdminInCurrentOrg();
+  }
+
+  /**
+   * Get user's role in current organization
+   */
+  function getCurrentOrganizationRole(): string | null {
+    if (isSystemAdmin()) {
+      return 'systemadmin';
+    }
+
+    if (!userInfo.value || !userInfo.value.organizationRoles) {
+      return null;
+    }
+
+    const currentOrgId = userInfo.value.recentOrganizationId;
+    if (!currentOrgId) {
+      return null;
+    }
+
+    const roleObj = userInfo.value.organizationRoles.find((r: any) =>
+      r.organizationId === currentOrgId
+    );
+
+    return roleObj ? roleObj.role : null;
+  }
+
+  /**
+   * Set user info from API
+   */
+  function setUserInfo(info: any) {
+    userInfo.value = info;
+  }
+
   return {
     isAuthenticated,
     user,
+    userInfo,
     loading,
     error,
     tokens,
@@ -352,5 +447,12 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMfaStatus,
     startMfaSetup,
     verifyAndEnableMfa,
+    setUserInfo,
+    isSystemAdmin,
+    isAdminInCurrentOrg,
+    isAdminInOrg,
+    canManageOrganizations,
+    canManageUsers,
+    getCurrentOrganizationRole,
   };
 });

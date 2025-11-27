@@ -337,6 +337,9 @@ async function fetchUserInfo() {
     userInfo.value = await apiService.getCurrentUser();
     console.log('Successfully fetched user info from /me API');
 
+    // Save user info to auth store for permission checks
+    authStore.setUserInfo(userInfo.value);
+
     // Set current organization
     if (userInfo.value && userInfo.value.recentOrganizationId) {
       selectedOrganizationId.value = userInfo.value.recentOrganizationId;

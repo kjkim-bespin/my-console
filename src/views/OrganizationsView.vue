@@ -1,0 +1,509 @@
+<template>
+  <div class="organizations-view">
+    <div class="page-header">
+      <h1>조직 관리</h1>
+      <button @click="openCreateModal" class="create-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>새 조직 생성</span>
+      </button>
+    </div>
+
+    <div v-if="loading" class="loading">로딩 중...</div>
+
+    <div v-else-if="error" class="error-card">
+      <h3>오류 발생</h3>
+      <p>{{ error }}</p>
+      <button @click="fetchOrganizations" class="retry-button">다시 시도</button>
+    </div>
+
+    <div v-else class="organizations-table-container">
+      <table class="organizations-table">
+        <thead>
+          <tr>
+            <th>조직 이름</th>
+            <th>설명</th>
+            <th>상태</th>
+            <th>생성일</th>
+            <th>작업</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="org in organizations" :key="org.id">
+            <td class="org-name">{{ org.name }}</td>
+            <td class="org-description">{{ org.descriptions || '-' }}</td>
+            <td>
+              <span class="status-badge" :class="org.status">
+                {{ org.status }}
+              </span>
+            </td>
+            <td>{{ formatDate(org.created) }}</td>
+            <td class="actions">
+              <button @click="openEditModal(org)" class="action-btn edit-btn" title="수정">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div v-if="organizations.length === 0" class="no-data">
+        등록된 조직이 없습니다.
+      </div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <div v-if="showModal" class="modal-overlay" @click="closeModal">
+      <div class="modal-content" @click.stop>
+        <h2>{{ isEditing ? '조직 수정' : '새 조직 생성' }}</h2>
+
+        <div class="form-group">
+          <label for="orgName">조직 이름 <span class="required">*</span></label>
+          <input
+            id="orgName"
+            v-model="formData.name"
+            type="text"
+            placeholder="조직 이름을 입력하세요"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="orgDescription">설명</label>
+          <textarea
+            id="orgDescription"
+            v-model="formData.description"
+            placeholder="조직 설명을 입력하세요"
+            rows="4"
+          ></textarea>
+        </div>
+
+        <div v-if="modalError" class="error-message">
+          {{ modalError }}
+        </div>
+
+        <div class="modal-actions">
+          <button @click="submitForm" :disabled="loading || !formData.name" class="primary-button">
+            {{ loading ? '저장 중...' : '저장' }}
+          </button>
+          <button @click="closeModal" :disabled="loading" class="secondary-button">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import apiService from '../services/api';
+
+const loading = ref(false);
+const error = ref<string | null>(null);
+const organizations = ref<any[]>([]);
+
+const showModal = ref(false);
+const isEditing = ref(false);
+const modalError = ref<string | null>(null);
+const currentOrgId = ref<string | null>(null);
+const formData = ref({
+  name: '',
+  description: '',
+});
+
+async function fetchOrganizations() {
+  loading.value = true;
+  error.value = null;
+
+  try {
+    const data = await apiService.adminListOrganizations();
+    organizations.value = Array.isArray(data) ? data : [];
+    console.log('Organizations fetched:', organizations.value);
+  } catch (err: any) {
+    error.value = err.response?.data?.message || err.message || 'Failed to fetch organizations';
+    console.error('Error fetching organizations:', err);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function openCreateModal() {
+  isEditing.value = false;
+  currentOrgId.value = null;
+  formData.value = {
+    name: '',
+    description: '',
+  };
+  modalError.value = null;
+  showModal.value = true;
+}
+
+function openEditModal(org: any) {
+  isEditing.value = true;
+  currentOrgId.value = org.id;
+  formData.value = {
+    name: org.name || '',
+    description: org.descriptions || '',
+  };
+  modalError.value = null;
+  showModal.value = true;
+}
+
+function closeModal() {
+  showModal.value = false;
+  modalError.value = null;
+}
+
+async function submitForm() {
+  modalError.value = null;
+
+  if (!formData.value.name || formData.value.name.trim() === '') {
+    modalError.value = '조직 이름은 필수 항목입니다.';
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    if (isEditing.value && currentOrgId.value) {
+      // Update organization
+      await apiService.adminUpdateOrganization(currentOrgId.value, {
+        name: formData.value.name.trim(),
+        description: formData.value.description?.trim(),
+      });
+      alert('조직이 성공적으로 수정되었습니다!');
+    } else {
+      // Create organization
+      await apiService.createOrganization({
+        name: formData.value.name.trim(),
+        description: formData.value.description?.trim(),
+      });
+      alert('조직이 성공적으로 생성되었습니다!');
+    }
+
+    closeModal();
+    await fetchOrganizations();
+  } catch (err: any) {
+    modalError.value = err.response?.data?.message || err.message || '조직 저장에 실패했습니다.';
+    console.error('Error saving organization:', err);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function formatDate(dateString: string) {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+onMounted(() => {
+  fetchOrganizations();
+});
+</script>
+
+<style scoped>
+.organizations-view {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  color: #2d3748;
+  margin: 0;
+}
+
+.create-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.create-btn:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.1rem;
+  color: #718096;
+}
+
+.error-card {
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.error-card h3 {
+  color: #e53e3e;
+  margin-top: 0;
+}
+
+.error-card p {
+  color: #742a2a;
+  margin-bottom: 1.5rem;
+}
+
+.retry-button {
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.retry-button:hover {
+  background: #5568d3;
+}
+
+.organizations-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.organizations-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.organizations-table thead {
+  background: #f7fafc;
+}
+
+.organizations-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.organizations-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+}
+
+.organizations-table tbody tr:hover {
+  background: #f7fafc;
+}
+
+.org-name {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.org-description {
+  color: #718096;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-badge.created,
+.status-badge.updated {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.status-badge.deleted {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.actions {
+  text-align: center;
+}
+
+.action-btn {
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-btn {
+  color: #667eea;
+}
+
+.edit-btn:hover {
+  background: #ebf4ff;
+  border-color: #667eea;
+}
+
+.no-data {
+  padding: 3rem;
+  text-align: center;
+  color: #718096;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: #2d3748;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.form-group .required {
+  color: #e53e3e;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 5px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.error-message {
+  color: #e53e3e;
+  background: #fff5f5;
+  padding: 0.75rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.primary-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+</style>
