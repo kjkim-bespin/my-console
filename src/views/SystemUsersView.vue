@@ -1,7 +1,7 @@
 <template>
-  <div class="users-view">
+  <div class="system-users-view">
     <div class="page-header">
-      <h1>사용자 관리 (조직 Admin)</h1>
+      <h1>전체 사용자 관리 (System Admin)</h1>
       <button @click="openCreateModal" class="create-btn">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -11,13 +11,19 @@
       </button>
     </div>
 
-    <!-- Current Organization Display -->
-    <div class="filter-section" v-if="authStore.userInfo">
-      <label>현재 조직:</label>
-      <div class="current-org">
-        <span class="org-badge">{{ getCurrentOrganizationName() }}</span>
-        <small>이 조직의 사용자만 관리할 수 있습니다.</small>
-      </div>
+    <!-- Organization Filter -->
+    <div class="filter-section">
+      <label for="orgFilter">조직 필터:</label>
+      <select id="orgFilter" v-model="selectedOrganizationId" @change="fetchUsers" class="org-select">
+        <option value="">전체 조직</option>
+        <option
+          v-for="org in organizations"
+          :key="org.id"
+          :value="org.id"
+        >
+          {{ org.name }}
+        </option>
+      </select>
     </div>
 
     <div v-if="loading" class="loading">로딩 중...</div>
@@ -34,6 +40,7 @@
           <tr>
             <th>이름</th>
             <th>이메일</th>
+            <th>조직</th>
             <th>전화번호</th>
             <th>역할</th>
             <th>MFA</th>
@@ -45,6 +52,11 @@
           <tr v-for="user in users" :key="user.id">
             <td class="user-name">{{ user.name }}</td>
             <td>{{ user.email }}</td>
+            <td>
+              <span v-for="org in user.organizations" :key="org.id" class="org-badge">
+                {{ org.name }}
+              </span>
+            </td>
             <td>{{ user.phoneNumber || '-' }}</td>
             <td>
               <span class="role-badge" v-for="role in getUserRoles(user)" :key="role">
@@ -62,12 +74,6 @@
               </span>
             </td>
             <td class="actions">
-              <button @click="openEditModal(user)" class="action-btn edit-btn" title="수정">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-              </button>
               <button @click="resetPassword(user)" class="action-btn reset-btn" title="비밀번호 초기화">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -96,10 +102,24 @@
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    <!-- Create Modal -->
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
-        <h2>{{ isEditing ? '사용자 수정' : '새 사용자 생성' }}</h2>
+        <h2>새 사용자 생성</h2>
+
+        <div class="form-group">
+          <label for="userOrganization">조직 선택 <span class="required">*</span></label>
+          <select id="userOrganization" v-model="formData.organizationId" required>
+            <option value="">조직을 선택하세요</option>
+            <option
+              v-for="org in organizations"
+              :key="org.id"
+              :value="org.id"
+            >
+              {{ org.name }}
+            </option>
+          </select>
+        </div>
 
         <div class="form-group">
           <label for="userName">이름 <span class="required">*</span></label>
@@ -112,7 +132,7 @@
           />
         </div>
 
-        <div class="form-group" v-if="!isEditing">
+        <div class="form-group">
           <label for="userEmail">이메일 <span class="required">*</span></label>
           <input
             id="userEmail"
@@ -174,7 +194,7 @@
           </div>
         </div>
 
-        <div class="form-group" v-if="!isEditing">
+        <div class="form-group">
           <label class="checkbox-label">
             <input
               type="checkbox"
@@ -189,7 +209,7 @@
         </div>
 
         <div class="modal-actions">
-          <button @click="submitForm" :disabled="loading || !formData.name" class="primary-button">
+          <button @click="submitForm" :disabled="loading || !formData.name || !formData.email || !formData.organizationId" class="primary-button">
             {{ loading ? '저장 중...' : '저장' }}
           </button>
           <button @click="closeModal" :disabled="loading" class="secondary-button">
@@ -203,20 +223,18 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useAuthStore } from '../stores/auth';
 import apiService from '../services/api';
 
-const authStore = useAuthStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const users = ref<any[]>([]);
+const organizations = ref<any[]>([]);
 const selectedOrganizationId = ref<string>('');
 
 const showModal = ref(false);
-const isEditing = ref(false);
 const modalError = ref<string | null>(null);
-const currentUserId = ref<string | null>(null);
 const formData = ref({
+  organizationId: '',
   name: '',
   email: '',
   phoneNumber: '',
@@ -226,29 +244,23 @@ const formData = ref({
   mfaMandatory: false,
 });
 
-function getCurrentOrganizationName(): string {
-  if (!authStore.userInfo || !authStore.userInfo.organizations) {
-    return '-';
+async function fetchOrganizations() {
+  try {
+    const data = await apiService.adminListOrganizations();
+    organizations.value = Array.isArray(data) ? data : [];
+  } catch (err: any) {
+    console.error('Error fetching organizations:', err);
   }
-  const currentOrg = authStore.userInfo.organizations.find(
-    (org: any) => org.id === selectedOrganizationId.value
-  );
-  return currentOrg?.name || '-';
 }
 
 async function fetchUsers() {
-  if (!selectedOrganizationId.value) {
-    return;
-  }
-
   loading.value = true;
   error.value = null;
 
   try {
-    // Admin uses /api/v1/users API (not /api/v1/admin/users)
-    const data = await apiService.listUsers(selectedOrganizationId.value);
+    const data = await apiService.adminListUsers(selectedOrganizationId.value || undefined);
     users.value = Array.isArray(data) ? data : [];
-    console.log('Users fetched:', users.value);
+    console.log('System users fetched:', users.value);
   } catch (err: any) {
     error.value = err.response?.data?.message || err.message || 'Failed to fetch users';
     console.error('Error fetching users:', err);
@@ -258,9 +270,8 @@ async function fetchUsers() {
 }
 
 function openCreateModal() {
-  isEditing.value = false;
-  currentUserId.value = null;
   formData.value = {
+    organizationId: selectedOrganizationId.value || '',
     name: '',
     email: '',
     phoneNumber: '',
@@ -268,28 +279,6 @@ function openCreateModal() {
     language: 'ko',
     roles: ['user'],
     mfaMandatory: false,
-  };
-  modalError.value = null;
-  showModal.value = true;
-}
-
-function openEditModal(user: any) {
-  isEditing.value = true;
-  currentUserId.value = user.id;
-
-  // Get roles for current organization
-  const orgRoles = user.organizationRoles?.filter((r: any) =>
-    r.organizationId === selectedOrganizationId.value
-  ) || [];
-
-  formData.value = {
-    name: user.name || '',
-    email: user.email || '',
-    phoneNumber: user.phoneNumber || '',
-    timezone: user.timezone || 'UTC+9',
-    language: user.language || 'ko',
-    roles: orgRoles.map((r: any) => r.role),
-    mfaMandatory: user.mfaMandatory || false,
   };
   modalError.value = null;
   showModal.value = true;
@@ -303,12 +292,17 @@ function closeModal() {
 async function submitForm() {
   modalError.value = null;
 
+  if (!formData.value.organizationId) {
+    modalError.value = '조직을 선택해주세요.';
+    return;
+  }
+
   if (!formData.value.name || formData.value.name.trim() === '') {
     modalError.value = '이름은 필수 항목입니다.';
     return;
   }
 
-  if (!isEditing.value && (!formData.value.email || formData.value.email.trim() === '')) {
+  if (!formData.value.email || formData.value.email.trim() === '') {
     modalError.value = '이메일은 필수 항목입니다.';
     return;
   }
@@ -321,33 +315,18 @@ async function submitForm() {
   loading.value = true;
 
   try {
-    if (isEditing.value && currentUserId.value) {
-      // Update user (uses /api/v1/users/:id)
-      const updateData: any = {
-        name: formData.value.name.trim(),
-        phoneNumber: formData.value.phoneNumber?.trim(),
-        timezone: formData.value.timezone,
-        language: formData.value.language,
-        roles: formData.value.roles,
-      };
+    const createData: any = {
+      email: formData.value.email.trim(),
+      name: formData.value.name.trim(),
+      phoneNumber: formData.value.phoneNumber?.trim(),
+      timezone: formData.value.timezone,
+      language: formData.value.language,
+      roles: formData.value.roles,
+      mfaMandatory: formData.value.mfaMandatory,
+    };
 
-      await apiService.updateUser(currentUserId.value, updateData, selectedOrganizationId.value);
-      alert('사용자가 성공적으로 수정되었습니다!');
-    } else {
-      // Create user (uses /api/v1/users)
-      const createData: any = {
-        email: formData.value.email.trim(),
-        name: formData.value.name.trim(),
-        phoneNumber: formData.value.phoneNumber?.trim(),
-        timezone: formData.value.timezone,
-        language: formData.value.language,
-        roles: formData.value.roles,
-        mfaMandatory: formData.value.mfaMandatory,
-      };
-
-      await apiService.createUser(selectedOrganizationId.value, createData);
-      alert('사용자가 성공적으로 생성되었습니다!');
-    }
+    await apiService.adminCreateUser(formData.value.organizationId, createData);
+    alert('사용자가 성공적으로 생성되었습니다!');
 
     closeModal();
     await fetchUsers();
@@ -364,8 +343,7 @@ async function resetPassword(user: any) {
   if (!confirmed) return;
 
   try {
-    // Uses /api/v1/users/:id/resetPassword
-    await apiService.resetUserPassword(user.id, selectedOrganizationId.value);
+    await apiService.adminResetUserPassword(user.id);
     alert('비밀번호 초기화 메일이 발송되었습니다.');
   } catch (err: any) {
     alert(err.response?.data?.message || err.message || '비밀번호 초기화에 실패했습니다.');
@@ -375,7 +353,7 @@ async function resetPassword(user: any) {
 
 async function inviteUser(user: any) {
   try {
-    await apiService.inviteUser(user.id, selectedOrganizationId.value);
+    await apiService.inviteAdminUser(user.id);
     alert('초대 메일이 발송되었습니다.');
   } catch (err: any) {
     alert(err.response?.data?.message || err.message || '초대 메일 발송에 실패했습니다.');
@@ -388,8 +366,7 @@ async function confirmDelete(user: any) {
   if (!confirmed) return;
 
   try {
-    // Uses /api/v1/users/:id
-    await apiService.deleteUser(user.id);
+    await apiService.adminDeleteUser(user.id, selectedOrganizationId.value || undefined);
     alert('사용자가 성공적으로 삭제되었습니다.');
     await fetchUsers();
   } catch (err: any) {
@@ -399,15 +376,17 @@ async function confirmDelete(user: any) {
 }
 
 function getUserRoles(user: any): string[] {
-  if (!user.organizationRoles || !selectedOrganizationId.value) {
+  if (!user.organizationRoles) {
     return [];
   }
 
-  const orgRoles = user.organizationRoles.filter((r: any) =>
-    r.organizationId === selectedOrganizationId.value
-  );
+  // Get unique roles across all organizations
+  const roles = new Set<string>();
+  user.organizationRoles.forEach((roleObj: any) => {
+    roles.add(roleObj.role);
+  });
 
-  return orgRoles.map((r: any) => r.role);
+  return Array.from(roles);
 }
 
 function getRoleDisplayName(role: string): string {
@@ -433,18 +412,16 @@ function getStatusText(user: any): string {
   return '초대 대기';
 }
 
-onMounted(() => {
-  // Set default organization
-  if (authStore.userInfo && authStore.userInfo.recentOrganizationId) {
-    selectedOrganizationId.value = authStore.userInfo.recentOrganizationId;
-    fetchUsers();
-  }
+onMounted(async () => {
+  await fetchOrganizations();
+  await fetchUsers();
 });
 </script>
 
 <style scoped>
-.users-view {
-  max-width: 1400px;
+/* Reuse styles from UsersView */
+.system-users-view {
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -513,27 +490,6 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.current-org {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.current-org .org-badge {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background: #667eea;
-  color: white;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.current-org small {
-  color: #718096;
-  font-size: 0.85rem;
-}
-
 .loading {
   text-align: center;
   padding: 3rem;
@@ -584,7 +540,7 @@ onMounted(() => {
 .users-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 1100px;
 }
 
 .users-table thead {
@@ -612,6 +568,17 @@ onMounted(() => {
 .user-name {
   font-weight: 600;
   color: #2d3748;
+}
+
+.org-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  margin-right: 0.25rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: #bee3f8;
+  color: #2c5282;
 }
 
 .role-badge {
@@ -674,15 +641,6 @@ onMounted(() => {
   margin: 0 0.25rem;
 }
 
-.edit-btn {
-  color: #667eea;
-}
-
-.edit-btn:hover {
-  background: #ebf4ff;
-  border-color: #667eea;
-}
-
 .reset-btn {
   color: #ed8936;
 }
@@ -716,7 +674,7 @@ onMounted(() => {
   color: #718096;
 }
 
-/* Modal Styles (similar to Organizations) */
+/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -763,8 +721,7 @@ onMounted(() => {
 }
 
 .form-group input,
-.form-group select,
-.form-group textarea {
+.form-group select {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #cbd5e0;
@@ -775,8 +732,7 @@ onMounted(() => {
 }
 
 .form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.form-group select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);

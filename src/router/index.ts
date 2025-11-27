@@ -6,6 +6,7 @@ import DashboardView from '../views/DashboardView.vue';
 import ChangePasswordView from '../views/ChangePasswordView.vue';
 import MfaView from '../views/MfaView.vue';
 import OrganizationsView from '../views/OrganizationsView.vue';
+import SystemUsersView from '../views/SystemUsersView.vue';
 import UsersView from '../views/UsersView.vue';
 import CloudAccountsView from '../views/CloudAccountsView.vue';
 
@@ -45,12 +46,6 @@ const router = createRouter({
           component: DashboardView,
         },
         {
-          path: 'organizations',
-          name: 'organizations',
-          component: OrganizationsView,
-          meta: { requiresSystemAdmin: true },
-        },
-        {
           path: 'users',
           name: 'users',
           component: UsersView,
@@ -60,6 +55,19 @@ const router = createRouter({
           path: 'cloud-accounts',
           name: 'cloud-accounts',
           component: CloudAccountsView,
+        },
+        // System Management routes (systemadmin only)
+        {
+          path: 'system/organizations',
+          name: 'system-organizations',
+          component: OrganizationsView,
+          meta: { requiresSystemAdmin: true },
+        },
+        {
+          path: 'system/users',
+          name: 'system-users',
+          component: SystemUsersView,
+          meta: { requiresSystemAdmin: true },
         },
       ],
     },
@@ -86,12 +94,13 @@ router.beforeEach(async (to, _from, next) => {
   } else if (requiresGuest && authStore.isAuthenticated) {
     // Redirect to dashboard if route requires guest and user is authenticated
     next('/dashboard');
-  } else if (requiresSystemAdmin && !authStore.canManageOrganizations()) {
+  } else if (requiresSystemAdmin && !authStore.isSystemAdmin()) {
     // Redirect to dashboard if route requires systemadmin and user is not systemadmin
     console.warn('Access denied: systemadmin permission required');
     next('/dashboard');
-  } else if (requiresAdmin && !authStore.canManageUsers()) {
-    // Redirect to dashboard if route requires admin and user is not admin/systemadmin
+  } else if (requiresAdmin && !authStore.isAdminInCurrentOrg()) {
+    // Redirect to dashboard if route requires admin and user is not admin
+    // Note: systemadmin uses /system/* routes, not /users
     console.warn('Access denied: admin permission required');
     next('/dashboard');
   } else {
