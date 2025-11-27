@@ -81,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
           userId: userInfo.userId,
           email: userInfo.email,
           sub: userInfo.sub,
+          groups: userInfo.groups || [],
           tokens: authTokens,
         };
 
@@ -131,6 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
           userId: userInfo.userId,
           email: userInfo.email,
           sub: userInfo.sub,
+          groups: userInfo.groups || [],
           tokens: authTokens,
         };
 
@@ -186,6 +188,7 @@ export const useAuthStore = defineStore('auth', () => {
           userId: userInfo.userId,
           email: userInfo.email,
           sub: userInfo.sub,
+          groups: userInfo.groups || [],
           tokens: authTokens,
         };
 
@@ -332,16 +335,16 @@ export const useAuthStore = defineStore('auth', () => {
   // ============ Permission Helper Functions ============
   /**
    * Check if user is systemadmin
-   * systemadmin role is indicated by a special 'systemadmin' role in organizationRoles
+   * systemadmin role is detected from cognito:groups in the ID Token (case-insensitive)
    */
   function isSystemAdmin(): boolean {
-    if (!userInfo.value || !userInfo.value.organizationRoles) {
+    if (!user.value || !user.value.groups) {
       return false;
     }
 
-    // Check if user has systemadmin role in any organization
-    return userInfo.value.organizationRoles.some((roleObj: any) =>
-      roleObj.role === 'systemadmin'
+    // Check cognito:groups for 'systemadmin' (case-insensitive)
+    return user.value.groups.some((group: string) =>
+      group.toLowerCase() === 'systemadmin'
     );
   }
 

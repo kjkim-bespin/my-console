@@ -28,6 +28,7 @@ export function extractUserInfo(tokens: { idToken?: string; accessToken?: string
     userId: null,
     email: null,
     sub: null,
+    groups: [],
   };
 
   if (tokens.idToken) {
@@ -36,7 +37,16 @@ export function extractUserInfo(tokens: { idToken?: string; accessToken?: string
       userInfo.username = idTokenPayload['cognito:username'] || idTokenPayload.username;
       userInfo.email = idTokenPayload.email;
       userInfo.sub = idTokenPayload.sub;
+
+      // Extract cognito:groups
+      if (idTokenPayload['cognito:groups']) {
+        userInfo.groups = Array.isArray(idTokenPayload['cognito:groups'])
+          ? idTokenPayload['cognito:groups']
+          : [idTokenPayload['cognito:groups']];
+      }
+
       console.log('ID Token payload:', idTokenPayload);
+      console.log('Cognito Groups:', userInfo.groups);
     }
   }
 
