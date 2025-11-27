@@ -46,6 +46,30 @@
           <span class="label">이메일:</span>
           <span class="value">{{ authStore.user.email }}</span>
         </div>
+        <div class="info-item">
+          <span class="label">MFA 상태:</span>
+          <div class="value-with-action">
+            <div class="mfa-status">
+              <svg v-if="authStore.mfaEnabled" class="status-icon enabled" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              <svg v-else class="status-icon disabled" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span class="value">{{ authStore.mfaEnabled ? '활성화됨' : '비활성화됨' }}</span>
+            </div>
+            <button v-if="!authStore.mfaEnabled" @click="openMfaSetup" class="enable-mfa-button" title="MFA 활성화">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span>MFA 활성화</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <template v-if="authStore.shouldFetchMe">
@@ -56,11 +80,62 @@
         </div>
       </template>
     </div>
+
+    <!-- MFA Setup Modal -->
+    <div v-if="showMfaSetup" class="modal-overlay" @click="closeMfaSetup">
+      <div class="modal-content" @click.stop>
+        <h2>MFA 활성화</h2>
+
+        <div v-if="!qrCodeUrl" class="loading">QR 코드 생성 중...</div>
+
+        <div v-else class="mfa-setup">
+          <p class="setup-instructions">
+            Google Authenticator 또는 다른 인증 앱으로 아래 QR 코드를 스캔하세요.
+          </p>
+
+          <div class="qr-code-container">
+            <img :src="qrCodeUrl" alt="QR Code" class="qr-code" />
+          </div>
+
+          <p class="setup-instructions">
+            또는 이 코드를 수동으로 입력하세요:
+          </p>
+          <div class="secret-code">{{ authStore.mfaSetupSecret }}</div>
+
+          <div class="form-group">
+            <label for="mfaVerifyCode">인증 코드</label>
+            <input
+              id="mfaVerifyCode"
+              v-model="verifyCode"
+              type="text"
+              placeholder="6자리 코드 입력"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              autocomplete="off"
+            />
+            <small class="hint">인증 앱에 표시된 6자리 코드를 입력하세요</small>
+          </div>
+
+          <div v-if="mfaSetupError" class="error-message">
+            {{ mfaSetupError }}
+          </div>
+
+          <div class="modal-actions">
+            <button @click="verifyAndEnable" :disabled="loading" class="primary-button">
+              {{ loading ? '확인 중...' : '확인 및 활성화' }}
+            </button>
+            <button @click="closeMfaSetup" :disabled="loading" class="secondary-button">
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from 'vue';
+import {onMounted, ref, computed} from 'vue';
 import {useRouter} from 'vue-router';
 import {useAuthStore} from '../stores/auth';
 import apiService from '../services/api';
@@ -72,6 +147,19 @@ const userInfo = ref<any>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const tokenCopied = ref(false);
+
+// MFA setup
+const showMfaSetup = ref(false);
+const verifyCode = ref('');
+const mfaSetupError = ref<string | null>(null);
+
+const qrCodeUrl = computed(() => {
+  if (!authStore.mfaSetupSecret) return null;
+  const username = authStore.user?.username || authStore.user?.email || 'user';
+  const issuer = 'MyConsole';
+  const otpauthUrl = `otpauth://totp/${issuer}:${username}?secret=${authStore.mfaSetupSecret}&issuer=${issuer}`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`;
+});
 
 async function fetchUserInfo() {
   // Only fetch if the option is enabled
@@ -123,8 +211,47 @@ async function copyAccessToken() {
   }
 }
 
+async function openMfaSetup() {
+  mfaSetupError.value = null;
+  verifyCode.value = '';
+
+  try {
+    await authStore.startMfaSetup();
+    showMfaSetup.value = true;
+  } catch (err: any) {
+    mfaSetupError.value = err.message || 'MFA 설정을 시작할 수 없습니다.';
+    console.error('Open MFA setup error:', err);
+  }
+}
+
+function closeMfaSetup() {
+  showMfaSetup.value = false;
+  verifyCode.value = '';
+  mfaSetupError.value = null;
+}
+
+async function verifyAndEnable() {
+  mfaSetupError.value = null;
+
+  if (!/^[0-9]{6}$/.test(verifyCode.value)) {
+    mfaSetupError.value = '6자리 숫자 코드를 입력해주세요.';
+    return;
+  }
+
+  try {
+    await authStore.verifyAndEnableMfa(verifyCode.value);
+    closeMfaSetup();
+    // Optionally show success message
+    alert('MFA가 성공적으로 활성화되었습니다!');
+  } catch (err: any) {
+    mfaSetupError.value = err.message || 'MFA 활성화에 실패했습니다. 코드를 확인하고 다시 시도해주세요.';
+    console.error('Verify and enable MFA error:', err);
+  }
+}
+
 onMounted(() => {
   fetchUserInfo();
+  authStore.fetchMfaStatus();
 });
 </script>
 
@@ -346,5 +473,207 @@ h2 {
 .tooltip-wrapper:hover .tooltip {
   opacity: 1;
   visibility: visible;
+}
+
+.value-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  gap: 1rem;
+}
+
+.mfa-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-icon {
+  flex-shrink: 0;
+}
+
+.status-icon.enabled {
+  color: #48bb78;
+}
+
+.status-icon.disabled {
+  color: #a0aec0;
+}
+
+.enable-mfa-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.enable-mfa-button:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.mfa-setup {
+  text-align: center;
+}
+
+.setup-instructions {
+  color: #666;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.qr-code-container {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.qr-code {
+  max-width: 200px;
+  height: auto;
+}
+
+.secret-code {
+  background: #f7fafc;
+  padding: 1rem;
+  border-radius: 5px;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.1rem;
+  margin: 1rem 0 1.5rem;
+  word-break: break-all;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.3rem;
+  font-family: 'Courier New', monospace;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-group .hint {
+  display: block;
+  margin-top: 0.5rem;
+  color: #888;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.primary-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

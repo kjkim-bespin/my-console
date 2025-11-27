@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth';
 import LoginView from '../views/LoginView.vue';
 import DashboardView from '../views/DashboardView.vue';
 import ChangePasswordView from '../views/ChangePasswordView.vue';
+import MfaView from '../views/MfaView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -21,6 +22,12 @@ const router = createRouter({
       path: '/change-password',
       name: 'change-password',
       component: ChangePasswordView,
+      meta: { requiresChallenge: true },
+    },
+    {
+      path: '/mfa',
+      name: 'mfa',
+      component: MfaView,
       meta: { requiresChallenge: true },
     },
     {

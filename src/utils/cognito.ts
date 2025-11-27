@@ -1,7 +1,11 @@
 import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
-  RespondToAuthChallengeCommand
+  RespondToAuthChallengeCommand,
+  GetUserCommand,
+  AssociateSoftwareTokenCommand,
+  VerifySoftwareTokenCommand,
+  SetUserMFAPreferenceCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import CryptoJS from 'crypto-js';
 
@@ -100,6 +104,135 @@ export async function completeNewPassword(
     return response;
   } catch (error) {
     console.error('Password change error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Respond to MFA challenge (SMS_MFA or SOFTWARE_TOKEN_MFA)
+ */
+export async function respondToMfaChallenge(
+  username: string,
+  mfaCode: string,
+  session: string,
+  challengeName: 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA'
+) {
+  console.log('=== Respond to MFA Challenge ===');
+  console.log('Username:', username);
+  console.log('Challenge Name:', challengeName);
+
+  const secretHash = calculateSecretHash(username);
+
+  const command = new RespondToAuthChallengeCommand({
+    ChallengeName: challengeName,
+    ClientId: clientId,
+    ChallengeResponses: {
+      USERNAME: username,
+      [challengeName === 'SMS_MFA' ? 'SMS_MFA_CODE' : 'SOFTWARE_TOKEN_MFA_CODE']: mfaCode,
+      SECRET_HASH: secretHash,
+    },
+    Session: session,
+  });
+
+  try {
+    const response = await client.send(command);
+    console.log('MFA verification successful');
+    return response;
+  } catch (error) {
+    console.error('MFA verification error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user's current MFA status
+ */
+export async function getUserMfaStatus(accessToken: string) {
+  console.log('=== Get User MFA Status ===');
+
+  const command = new GetUserCommand({
+    AccessToken: accessToken,
+  });
+
+  try {
+    const response = await client.send(command);
+    console.log('User MFA status retrieved');
+    return {
+      mfaOptions: response.MFAOptions || [],
+      userMFASettingList: response.UserMFASettingList || [],
+      preferredMfaSetting: response.PreferredMfaSetting,
+    };
+  } catch (error) {
+    console.error('Get user MFA status error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Start TOTP MFA setup (get secret code for QR generation)
+ */
+export async function setupMfaTotp(accessToken: string) {
+  console.log('=== Setup MFA TOTP ===');
+
+  const command = new AssociateSoftwareTokenCommand({
+    AccessToken: accessToken,
+  });
+
+  try {
+    const response = await client.send(command);
+    console.log('TOTP setup initiated');
+    return {
+      secretCode: response.SecretCode,
+      session: response.Session,
+    };
+  } catch (error) {
+    console.error('Setup MFA TOTP error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Verify TOTP code during setup
+ */
+export async function verifyMfaTotp(accessToken: string, userCode: string, session?: string) {
+  console.log('=== Verify MFA TOTP ===');
+
+  const command = new VerifySoftwareTokenCommand({
+    AccessToken: accessToken,
+    UserCode: userCode,
+    Session: session,
+  });
+
+  try {
+    const response = await client.send(command);
+    console.log('TOTP verification successful');
+    return response;
+  } catch (error) {
+    console.error('Verify MFA TOTP error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Enable MFA preference (set TOTP as preferred)
+ */
+export async function enableMfaPreference(accessToken: string) {
+  console.log('=== Enable MFA Preference ===');
+
+  const command = new SetUserMFAPreferenceCommand({
+    AccessToken: accessToken,
+    SoftwareTokenMfaSettings: {
+      Enabled: true,
+      PreferredMfa: true,
+    },
+  });
+
+  try {
+    const response = await client.send(command);
+    console.log('MFA preference enabled');
+    return response;
+  } catch (error) {
+    console.error('Enable MFA preference error:', error);
     throw error;
   }
 }

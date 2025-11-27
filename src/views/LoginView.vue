@@ -68,7 +68,14 @@ async function handleLogin() {
     if (result.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
       console.log('Redirecting to change password page');
       router.push('/change-password');
-    } else if (authStore.isAuthenticated) {
+    }
+    // Check if MFA is required
+    else if (result.ChallengeName === 'SMS_MFA' || result.ChallengeName === 'SOFTWARE_TOKEN_MFA') {
+      console.log('Redirecting to MFA page');
+      router.push('/mfa');
+    }
+    // Login successful
+    else if (authStore.isAuthenticated) {
       router.push('/dashboard');
     }
   } catch (error) {
