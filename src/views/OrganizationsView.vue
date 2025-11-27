@@ -33,7 +33,7 @@
         <tbody>
           <tr v-for="org in organizations" :key="org.id">
             <td class="org-name">{{ org.name }}</td>
-            <td class="org-description">{{ org.descriptions || '-' }}</td>
+            <td class="org-description">{{ org.description || '-' }}</td>
             <td>
               <span class="status-badge" :class="org.status">
                 {{ org.status }}
@@ -149,7 +149,7 @@ function openEditModal(org: any) {
   currentOrgId.value = org.id;
   formData.value = {
     name: org.name || '',
-    description: org.descriptions || '',
+    description: org.description || '',
   };
   modalError.value = null;
   showModal.value = true;
