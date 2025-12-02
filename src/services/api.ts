@@ -285,6 +285,50 @@ class ApiService {
     const response = await this.api.delete(`/api/v1/cloud_accounts/${cloudAccountId}`);
     return response.data;
   }
+
+  // ============ Honeypot Alert History API ============
+  // Search honeypot alert history
+  async searchHoneypotAlertHistory(data: {
+    period?: {
+      startDate?: string;
+      endDate?: string;
+    };
+    conditions?: Array<{
+      key: string;
+      operator: string;
+      value: string[];
+    }>;
+    orderBy?: string;
+    sort?: string;
+    offset?: number;
+    limit?: number;
+  }) {
+    const response = await this.api.post('/api/v1/honeypot_alert_histories/search', data);
+    return response.data;
+  }
+
+  // Get filter options for honeypot alert history
+  async getHoneypotAlertHistoryFilters(data: {
+    filterKey: string;
+    conditions?: Array<{
+      key: string;
+      operator: string;
+      value: string[];
+    }>;
+    period?: {
+      startDate?: string;
+      endDate?: string;
+    };
+  }) {
+    const response = await this.api.post('/api/v1/honeypot_alert_histories/filters', data);
+    return response.data;
+  }
+
+  // Get honeypot alert history by ID
+  async getHoneypotAlertHistoryById(alertId: string) {
+    const response = await this.api.get(`/api/v1/honeypot_alert_histories/${alertId}`);
+    return response.data;
+  }
 }
 
 export default new ApiService();

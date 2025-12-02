@@ -9,6 +9,7 @@ import OrganizationsView from '../views/OrganizationsView.vue';
 import SystemUsersView from '../views/SystemUsersView.vue';
 import UsersView from '../views/UsersView.vue';
 import CloudAccountsView from '../views/CloudAccountsView.vue';
+import HoneypotAlertHistoryView from '../views/HoneypotAlertHistoryView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -55,6 +56,11 @@ const router = createRouter({
           path: 'cloud-accounts',
           name: 'cloud-accounts',
           component: CloudAccountsView,
+        },
+        {
+          path: 'honeypot-alerts',
+          name: 'honeypot-alerts',
+          component: HoneypotAlertHistoryView,
         },
         // System Management routes (systemadmin only)
         {

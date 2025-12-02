@@ -24,14 +24,6 @@
           Cognito 사용자 정보
         </button>
         <button
-          v-if="authStore.shouldFetchMe"
-          class="tab-button"
-          :class="{ active: activeTab === 'api' }"
-          @click="activeTab = 'api'"
-        >
-          API 응답 (GET /api/v1/me)
-        </button>
-        <button
           v-if="authStore.shouldFetchMe && userInfo && userInfo.organizations && userInfo.organizations.length > 0"
           class="tab-button"
           :class="{ active: activeTab === 'organizations' }"
@@ -104,24 +96,6 @@
           </div>
         </div>
 
-        <!-- API Response Tab -->
-        <div v-if="activeTab === 'api' && authStore.shouldFetchMe" class="tab-panel">
-          <div class="section-header">
-            <h2>API 응답 (GET /api/v1/me)</h2>
-            <button v-if="userInfo" @click="openEditModal" class="edit-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-              <span>정보 수정</span>
-            </button>
-          </div>
-          <div class="info-section">
-            <pre v-if="userInfo" class="api-response">{{ JSON.stringify(userInfo, null, 2) }}</pre>
-            <div v-else class="no-data">API 호출 결과가 없습니다.</div>
-          </div>
-        </div>
-
         <!-- Organizations Tab -->
         <div v-if="activeTab === 'organizations' && authStore.shouldFetchMe && userInfo && userInfo.organizations" class="tab-panel">
           <h2>조직 관리</h2>
@@ -145,20 +119,46 @@
                 </select>
               </div>
             </div>
-            <div v-if="userInfo.organizations && userInfo.organizations.length > 0" class="organizations-list">
-              <h3>사용 가능한 조직 목록</h3>
-              <div
-                v-for="org in userInfo.organizations"
-                :key="org.id"
-                class="organization-item"
-                :class="{ active: org.id === selectedOrganizationId }"
-              >
-                <div class="org-info">
-                  <div class="org-name">{{ org.name }}</div>
-                  <div class="org-id">ID: {{ org.id }}</div>
+
+            <!-- Organization Details (admin only) -->
+            <div v-if="authStore.isAdminInCurrentOrg() && !authStore.isSystemAdmin() && currentOrgDetails" class="org-details-section">
+              <h3>조직 상세 정보</h3>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="detail-label">조직 ID:</span>
+                  <span class="detail-value">{{ currentOrgDetails.id || '-' }}</span>
                 </div>
-                <div v-if="org.id === selectedOrganizationId" class="current-badge">
-                  현재 조직
+                <div class="detail-item">
+                  <span class="detail-label">조직 이름:</span>
+                  <span class="detail-value">{{ currentOrgDetails.name || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">설명:</span>
+                  <span class="detail-value">{{ currentOrgDetails.description || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">상태:</span>
+                  <span class="detail-value">
+                    <span class="status-badge" :class="currentOrgDetails.status">
+                      {{ currentOrgDetails.status || '-' }}
+                    </span>
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">생성일:</span>
+                  <span class="detail-value">{{ formatDate(currentOrgDetails.created) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">생성자:</span>
+                  <span class="detail-value">{{ currentOrgDetails.createdBy || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">수정일:</span>
+                  <span class="detail-value">{{ formatDate(currentOrgDetails.modified) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">수정자:</span>
+                  <span class="detail-value">{{ currentOrgDetails.modifiedBy || '-' }}</span>
                 </div>
               </div>
             </div>
@@ -217,68 +217,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Edit User Info Modal -->
-    <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
-      <div class="modal-content" @click.stop>
-        <h2>사용자 정보 수정</h2>
-
-        <div class="edit-form">
-          <div class="form-group">
-            <label for="editName">이름 <span class="required">*</span></label>
-            <input
-              id="editName"
-              v-model="editForm.name"
-              type="text"
-              placeholder="이름을 입력하세요"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="editPhoneNumber">전화번호</label>
-            <input
-              id="editPhoneNumber"
-              v-model="editForm.phoneNumber"
-              type="tel"
-              placeholder="전화번호를 입력하세요"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="editTimezone">타임존</label>
-            <select id="editTimezone" v-model="editForm.timezone">
-              <option value="UTC+9">UTC+9 (한국)</option>
-              <option value="UTC+0">UTC+0 (GMT)</option>
-              <option value="UTC-5">UTC-5 (EST)</option>
-              <option value="UTC-8">UTC-8 (PST)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="editLanguage">언어</label>
-            <select id="editLanguage" v-model="editForm.language">
-              <option value="ko">한국어</option>
-              <option value="en">English</option>
-              <option value="ja">日本語</option>
-            </select>
-          </div>
-
-          <div v-if="editError" class="error-message">
-            {{ editError }}
-          </div>
-
-          <div class="modal-actions">
-            <button @click="submitUserInfoUpdate" :disabled="loading || !editForm.name" class="primary-button">
-              {{ loading ? '저장 중...' : '저장' }}
-            </button>
-            <button @click="closeEditModal" :disabled="loading" class="secondary-button">
-              취소
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -310,18 +248,9 @@ const qrCodeUrl = computed(() => {
   return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`;
 });
 
-// Edit user info
-const showEditModal = ref(false);
-const editError = ref<string | null>(null);
-const editForm = ref({
-  name: '',
-  phoneNumber: '',
-  timezone: '',
-  language: '',
-});
-
 // Organization switching
 const selectedOrganizationId = ref<string>('');
+const currentOrgDetails = ref<any>(null);
 
 async function fetchUserInfo() {
   // Only fetch if the option is enabled
@@ -343,12 +272,28 @@ async function fetchUserInfo() {
     // Set current organization
     if (userInfo.value && userInfo.value.recentOrganizationId) {
       selectedOrganizationId.value = userInfo.value.recentOrganizationId;
+      // Fetch organization details for admin users
+      if (authStore.isAdminInCurrentOrg() && !authStore.isSystemAdmin()) {
+        await fetchOrganizationDetails(selectedOrganizationId.value);
+      }
     }
   } catch (err: any) {
     error.value = err.response?.data?.message || err.message || 'Failed to fetch user info';
     console.error('Error fetching user info:', err);
   } finally {
     loading.value = false;
+  }
+}
+
+async function fetchOrganizationDetails(orgId: string) {
+  if (!orgId) return;
+
+  try {
+    currentOrgDetails.value = await apiService.getOrganization(orgId);
+    console.log('Organization details fetched:', currentOrgDetails.value);
+  } catch (err: any) {
+    console.error('Error fetching organization details:', err);
+    currentOrgDetails.value = null;
   }
 }
 
@@ -419,60 +364,6 @@ async function verifyAndEnable() {
   }
 }
 
-function openEditModal() {
-  if (!userInfo.value) return;
-
-  // Populate form with current values
-  editForm.value = {
-    name: userInfo.value.name || '',
-    phoneNumber: userInfo.value.phoneNumber || '',
-    timezone: userInfo.value.timezone || 'UTC+9',
-    language: userInfo.value.language || 'ko',
-  };
-
-  editError.value = null;
-  showEditModal.value = true;
-}
-
-function closeEditModal() {
-  showEditModal.value = false;
-  editError.value = null;
-}
-
-async function submitUserInfoUpdate() {
-  editError.value = null;
-
-  // Validate required fields
-  if (!editForm.value.name || editForm.value.name.trim() === '') {
-    editError.value = '이름은 필수 항목입니다.';
-    return;
-  }
-
-  loading.value = true;
-
-  try {
-    const updateData = {
-      name: editForm.value.name.trim(),
-      phoneNumber: editForm.value.phoneNumber || undefined,
-      timezone: editForm.value.timezone || undefined,
-      language: editForm.value.language || undefined,
-    };
-
-    await apiService.updateUserInfo(updateData);
-
-    // Refresh user info
-    await fetchUserInfo();
-
-    closeEditModal();
-    alert('사용자 정보가 성공적으로 업데이트되었습니다!');
-  } catch (err: any) {
-    editError.value = err.response?.data?.message || err.message || '정보 업데이트에 실패했습니다.';
-    console.error('Update user info error:', err);
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function handleOrganizationChange() {
   if (!selectedOrganizationId.value) {
     return;
@@ -512,6 +403,12 @@ async function handleOrganizationChange() {
   } finally {
     loading.value = false;
   }
+}
+
+function formatDate(dateString: string) {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
 onMounted(() => {
@@ -1095,66 +992,75 @@ h2 {
   }
 }
 
-/* Organizations List */
-.organizations-list {
+/* Organization Details Section */
+.org-details-section {
   margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 2px solid #e2e8f0;
+  padding: 1.5rem;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
 }
 
-.organizations-list h3 {
-  color: #4a5568;
-  margin-bottom: 1rem;
+.org-details-section h3 {
+  color: #2d3748;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #cbd5e0;
   font-size: 1.1rem;
 }
 
-.organization-item {
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.detail-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
-  background: #f7fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  transition: all 0.3s;
+  flex-direction: column;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
 }
 
-.organization-item:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-}
-
-.organization-item.active {
-  background: #ebf4ff;
-  border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-}
-
-.org-info {
-  flex: 1;
-}
-
-.org-name {
-  font-weight: 600;
-  color: #2d3748;
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
-}
-
-.org-id {
-  color: #718096;
+.detail-label {
   font-size: 0.85rem;
-  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #718096;
+  margin-bottom: 0.5rem;
 }
 
-.current-badge {
-  padding: 0.4rem 0.8rem;
-  background: #667eea;
-  color: white;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
+.detail-value {
+  font-size: 0.95rem;
+  color: #2d3748;
+  word-break: break-word;
+}
+
+.detail-value .status-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.detail-value .status-badge.created,
+.detail-value .status-badge.updated {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.detail-value .status-badge.deleted {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+@media (max-width: 768px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

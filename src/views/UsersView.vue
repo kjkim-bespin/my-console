@@ -47,7 +47,7 @@
             <td>{{ user.email }}</td>
             <td>{{ user.phoneNumber || '-' }}</td>
             <td>
-              <span class="role-badge" v-for="role in getUserRoles(user)" :key="role">
+              <span class="role-badge" :class="`role-${role}`" v-for="role in getUserRoles(user)" :key="role">
                 {{ getRoleDisplayName(role) }}
               </span>
             </td>
@@ -198,6 +198,36 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDelete">
+      <div class="modal-content delete-confirm-modal" @click.stop>
+        <div class="modal-header">
+          <h2>사용자 삭제 확인</h2>
+        </div>
+        <div class="modal-body">
+          <div class="confirm-message">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="warning-icon">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <p class="confirm-text">
+              정말로 <strong>{{ deleteTarget?.name }}</strong>님을 삭제하시겠습니까?
+            </p>
+            <p class="warning-text">이 작업은 취소할 수 없습니다.</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="executeDelete" :disabled="loading" class="delete-button">
+            {{ loading ? '삭제 중...' : '삭제' }}
+          </button>
+          <button @click="cancelDelete" :disabled="loading" class="cancel-button">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -225,6 +255,10 @@ const formData = ref({
   roles: [] as string[],
   mfaMandatory: false,
 });
+
+// Delete confirmation
+const showDeleteConfirm = ref(false);
+const deleteTarget = ref<any>(null);
 
 function getCurrentOrganizationName(): string {
   if (!authStore.userInfo || !authStore.userInfo.organizations) {
@@ -383,9 +417,22 @@ async function inviteUser(user: any) {
   }
 }
 
-async function confirmDelete(user: any) {
-  const confirmed = confirm(`정말로 ${user.name}님을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.`);
-  if (!confirmed) return;
+function confirmDelete(user: any) {
+  deleteTarget.value = user;
+  showDeleteConfirm.value = true;
+}
+
+function cancelDelete() {
+  showDeleteConfirm.value = false;
+  deleteTarget.value = null;
+}
+
+async function executeDelete() {
+  if (!deleteTarget.value) return;
+
+  const user = deleteTarget.value;
+  showDeleteConfirm.value = false;
+  loading.value = true;
 
   try {
     // Uses /api/v1/users/:id
@@ -395,6 +442,9 @@ async function confirmDelete(user: any) {
   } catch (err: any) {
     alert(err.response?.data?.message || err.message || '사용자 삭제에 실패했습니다.');
     console.error('Error deleting user:', err);
+  } finally {
+    loading.value = false;
+    deleteTarget.value = null;
   }
 }
 
@@ -434,9 +484,9 @@ function getStatusText(user: any): string {
 }
 
 onMounted(() => {
-  // Set default organization
-  if (authStore.userInfo && authStore.userInfo.recentOrganizationId) {
-    selectedOrganizationId.value = authStore.userInfo.recentOrganizationId;
+  // Set default organization to first organization
+  if (authStore.userInfo && authStore.userInfo.organizations && authStore.userInfo.organizations.length > 0) {
+    selectedOrganizationId.value = authStore.userInfo.organizations[0].id;
     fetchUsers();
   }
 });
@@ -619,8 +669,22 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 0.85rem;
   font-weight: 500;
-  background: #e6fffa;
-  color: #234e52;
+}
+
+/* Role-specific colors */
+.role-badge.role-systemadmin {
+  background: #fed7aa;
+  color: #7c2d12;
+}
+
+.role-badge.role-admin {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
+.role-badge.role-user {
+  background: #bfdbfe;
+  color: #1e3a8a;
 }
 
 .mfa-status {
@@ -855,6 +919,85 @@ onMounted(() => {
 }
 
 .secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Delete Confirmation Modal */
+.delete-confirm-modal {
+  max-width: 450px;
+}
+
+.confirm-message {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.warning-icon {
+  color: #f59e0b;
+  margin: 0 auto 1rem;
+  display: block;
+}
+
+.confirm-text {
+  font-size: 1.1rem;
+  color: #2d3748;
+  margin: 0 0 0.5rem 0;
+}
+
+.confirm-text strong {
+  color: #e53e3e;
+  font-weight: 700;
+}
+
+.warning-text {
+  font-size: 0.9rem;
+  color: #718096;
+  margin: 0;
+}
+
+.delete-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #c53030;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+}
+
+.delete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.cancel-button:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.cancel-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

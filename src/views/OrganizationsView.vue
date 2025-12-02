@@ -172,6 +172,36 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDelete">
+      <div class="modal-content delete-confirm-modal" @click.stop>
+        <div class="modal-header">
+          <h2>조직 삭제 확인</h2>
+        </div>
+        <div class="modal-body">
+          <div class="confirm-message">
+            <svg class="warning-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <p class="confirm-text">
+              정말로 <strong>{{ deleteTarget?.name }}</strong> 조직을 삭제하시겠습니까?
+            </p>
+            <p class="warning-text">이 작업은 취소할 수 없습니다.</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="executeDelete" :disabled="loading" class="delete-button">
+            {{ loading ? '삭제 중...' : '삭제' }}
+          </button>
+          <button @click="cancelDelete" :disabled="loading" class="cancel-button">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -194,6 +224,10 @@ const formData = ref({
 
 const showViewModal = ref(false);
 const viewData = ref<any>({});
+
+// Delete confirmation
+const showDeleteConfirm = ref(false);
+const deleteTarget = ref<any>(null);
 
 async function fetchOrganizations() {
   loading.value = true;
@@ -285,15 +319,22 @@ async function submitForm() {
   }
 }
 
-async function confirmDelete(org: any) {
-  const confirmed = confirm(`조직 "${org.name}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
+function confirmDelete(org: any) {
+  deleteTarget.value = org;
+  showDeleteConfirm.value = true;
+}
 
-  if (!confirmed) {
-    return;
-  }
+function cancelDelete() {
+  showDeleteConfirm.value = false;
+  deleteTarget.value = null;
+}
 
+async function executeDelete() {
+  if (!deleteTarget.value) return;
+
+  const org = deleteTarget.value;
+  showDeleteConfirm.value = false;
   loading.value = true;
-  error.value = null;
 
   try {
     await apiService.adminDeleteOrganization(org.id);
@@ -305,6 +346,7 @@ async function confirmDelete(org: any) {
     console.error('Error deleting organization:', err);
   } finally {
     loading.value = false;
+    deleteTarget.value = null;
   }
 }
 
@@ -687,5 +729,105 @@ onMounted(() => {
   .modal-content-wide {
     max-width: 90%;
   }
+}
+
+/* Delete Confirmation Modal Styles */
+.delete-confirm-modal {
+  max-width: 450px;
+}
+
+.delete-confirm-modal .modal-header {
+  margin-bottom: 1.5rem;
+}
+
+.delete-confirm-modal .modal-header h2 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 1.5rem;
+}
+
+.delete-confirm-modal .modal-body {
+  margin-bottom: 1.5rem;
+}
+
+.confirm-message {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.warning-icon {
+  color: #f59e0b;
+  margin-bottom: 1rem;
+}
+
+.confirm-text {
+  font-size: 1.1rem;
+  color: #2d3748;
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.confirm-text strong {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.warning-text {
+  font-size: 0.9rem;
+  color: #e53e3e;
+  margin: 0;
+  font-weight: 500;
+}
+
+.delete-confirm-modal .modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0;
+}
+
+.delete-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #c53030;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+}
+
+.delete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-button:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
