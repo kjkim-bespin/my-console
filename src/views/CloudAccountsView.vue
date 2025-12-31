@@ -39,6 +39,18 @@
           <h3>{{ account.name }}</h3>
           <div class="account-info">
             <div class="info-row">
+              <span class="label">ID:</span>
+              <span class="value id-value">
+                <span class="id-text">{{ account.id }}</span>
+                <button class="copy-btn" @click="copyToClipboard(account.id)" title="복사">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </span>
+            </div>
+            <div class="info-row">
               <span class="label">Account ID:</span>
               <span class="value">{{ account.accountName || '-' }}</span>
             </div>
@@ -464,6 +476,16 @@ function formatDate(dateString: string) {
   return date.toLocaleDateString('ko-KR');
 }
 
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('클립보드에 복사되었습니다.');
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    alert('복사에 실패했습니다.');
+  }
+}
+
 onMounted(() => {
   fetchCloudAccounts();
 });
@@ -656,6 +678,37 @@ onMounted(() => {
   color: #718096;
   font-size: 0.9rem;
   text-align: right;
+}
+
+.info-row .value.id-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-row .id-text {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #4a5568;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #718096;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background: #edf2f7;
+  border-color: #667eea;
+  color: #667eea;
 }
 
 .card-actions {

@@ -1,14 +1,36 @@
 import axios, { type AxiosInstance } from 'axios';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// API 서버 환경 설정
+export type ApiEnvironment = 'local' | 'dev';
+
+const API_URLS: Record<ApiEnvironment, string> = {
+  local: import.meta.env.VITE_API_BASE_URL_LOCAL || 'http://localhost:3000',
+  dev: import.meta.env.VITE_API_BASE_URL_DEV || 'http://localhost:3000',
+};
+
+// localStorage에서 선택된 환경 가져오기
+const STORAGE_KEY = 'api_environment';
+
+function getStoredEnvironment(): ApiEnvironment {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === 'local' || stored === 'dev') {
+    return stored;
+  }
+  return 'local'; // 기본값
+}
+
+function getApiBaseUrl(): string {
+  const env = getStoredEnvironment();
+  return API_URLS[env];
+}
 
 class ApiService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: getApiBaseUrl(),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -328,6 +350,80 @@ class ApiService {
   async getHoneypotAlertHistoryById(alertId: string) {
     const response = await this.api.get(`/api/v1/honeypot_alert_histories/${alertId}`);
     return response.data;
+  }
+
+  // ============ Honeypots API ============
+  // List honeypots
+  async listHoneypots(params?: {
+    cloudAccountId?: string;
+    status?: string;
+  }) {
+    const response = await this.api.get('/api/v1/honeypots', { params });
+    return response.data;
+  }
+
+  // Get honeypot by ID
+  async getHoneypot(honeypotId: string) {
+    const response = await this.api.get(`/api/v1/honeypots/${honeypotId}`);
+    return response.data;
+  }
+
+  // Create honeypot
+  async createHoneypot(data: {
+    cloudAccountId: string;
+    csp: string;
+    name: string;
+    instanceId: string;
+    networkMode: 'default' | 'custom';
+    networkSpec?: {
+      vpcId?: string;
+      subnetId?: string;
+      securityGroupId?: string;
+    };
+    spec?: Record<string, any>;
+  }) {
+    const response = await this.api.post('/api/v1/honeypots', data);
+    return response.data;
+  }
+
+  // Update honeypot
+  async updateHoneypot(honeypotId: string, data: {
+    name?: string;
+    description?: string;
+  }) {
+    const response = await this.api.patch(`/api/v1/honeypots/${honeypotId}`, data);
+    return response.data;
+  }
+
+  // Delete honeypot
+  async deleteHoneypot(honeypotId: string) {
+    const response = await this.api.delete(`/api/v1/honeypots/${honeypotId}`);
+    return response.data;
+  }
+
+  // API 환경 변경
+  setEnvironment(env: ApiEnvironment) {
+    localStorage.setItem(STORAGE_KEY, env);
+    this.api.defaults.baseURL = API_URLS[env];
+    console.log(`API environment changed to: ${env} (${API_URLS[env]})`);
+  }
+
+  // 현재 환경 가져오기
+  getEnvironment(): ApiEnvironment {
+    return getStoredEnvironment();
+  }
+
+  // 현재 baseURL 가져오기
+  getBaseUrl(): string {
+    return this.api.defaults.baseURL || getApiBaseUrl();
+  }
+
+  // 사용 가능한 환경 목록
+  getAvailableEnvironments(): { key: ApiEnvironment; label: string; url: string }[] {
+    return [
+      { key: 'local', label: 'Local', url: API_URLS.local },
+      { key: 'dev', label: 'Dev', url: API_URLS.dev },
+    ];
   }
 }
 

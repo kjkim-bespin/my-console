@@ -5,6 +5,34 @@
 
       <form @submit.prevent="handleLogin">
         <div class="form-group">
+          <label for="api-server">API 서버</label>
+          <select
+            id="api-server"
+            v-model="selectedEnvironment"
+            @change="handleEnvironmentChange"
+            class="server-select"
+          >
+            <option
+              v-for="env in availableEnvironments"
+              :key="env.key"
+              :value="env.key"
+            >
+              {{ env.label }} ({{ env.url }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              v-model="fetchMeInfo"
+            />
+            <span>로그인 후 사용자 정보 API 호출</span>
+          </label>
+        </div>
+
+        <div class="form-group">
           <label for="username">이메일</label>
           <input
             id="username"
@@ -26,16 +54,6 @@
           />
         </div>
 
-        <div class="form-group checkbox-group">
-          <label class="checkbox-label">
-            <input
-              type="checkbox"
-              v-model="fetchMeInfo"
-            />
-            <span>로그인 후 사용자 정보 API 호출</span>
-          </label>
-        </div>
-
         <div v-if="authStore.error" class="error-message">
           {{ authStore.error }}
         </div>
@@ -52,6 +70,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import apiService, { type ApiEnvironment } from '../services/api';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -59,6 +78,14 @@ const authStore = useAuthStore();
 const username = ref('');
 const password = ref('');
 const fetchMeInfo = ref(false);
+
+// API 환경 선택
+const availableEnvironments = apiService.getAvailableEnvironments();
+const selectedEnvironment = ref<ApiEnvironment>(apiService.getEnvironment());
+
+function handleEnvironmentChange() {
+  apiService.setEnvironment(selectedEnvironment.value);
+}
 
 async function handleLogin() {
   try {
@@ -129,9 +156,22 @@ input {
   box-sizing: border-box;
 }
 
-input:focus {
+input:focus,
+.server-select:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.server-select {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+  background-color: white;
+  cursor: pointer;
 }
 
 .checkbox-group {

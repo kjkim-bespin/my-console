@@ -47,6 +47,20 @@
             <span>클라우드 계정</span>
           </router-link>
 
+          <!-- Honeypots menu (all authenticated users) -->
+          <router-link
+            to="/honeypots"
+            class="nav-item"
+            active-class="active"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+              <path d="M2 17l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+            <span>Honeypot 관리</span>
+          </router-link>
+
           <!-- Honeypot Alert History menu (all authenticated users) -->
           <router-link
             to="/honeypot-alerts"
